@@ -23,6 +23,7 @@ your own risk.
 import sys
 import os
 import argparse
+import pathlib
 import mailbox
 import email
 #import traceback
@@ -71,26 +72,26 @@ def main(maildir_path, mbox_filename):
     Including subfolders, in Mozilla Thunderbird style.
     """
     # Creates the main mailbox
-    dirname = maildir_path
-    mboxname = mbox_filename
+    dirname = pathlib.Path(maildir_path)
+    mboxname = pathlib.Path(mbox_filename)
 
     logger.info('%s -> %s' % (dirname, mboxname))
-    mboxdirname = '%s.sbd' % mboxname
+    mboxdirname = pathlib.Path('%s.sbd' % mboxname)
 
-    if not os.path.exists(mboxdirname):
+    if not mboxdirname.exists():
         os.makedirs(mboxdirname)
-    elif not os.path.isdir(mboxdirname):
+    elif not mboxdirname.is_dir():
         logger.error('%s exists but is not a directory!' % mboxdirname)
         return 1
 
     maildir2mailbox(dirname, mboxname)
 
     # Creates the subfolder mailboxes
-    listofdirs = [dirname for dirinfo in os.walk(dirname)
-                              for dirname in dirinfo[1]
-                                  if dirname.startswith('.')]
-                                      #and dirname not in ['new', 'cur', 'tmp']]
-    for curfold in listofdirs:
+    subfolders = [dirent for dirent in os.scandir(dirname)
+                             if dirent.name.startswith('.')]
+                                 #and dirent.name not in ['new', 'cur', 'tmp']
+    for subfolder in subfolders:
+        curfold = subfolder.name
         curlist = [mboxname] + curfold.split('.')
         curpath = os.path.join(*['%s.sbd' % dn for dn in curlist if dn])
         mboxpath = curpath[:-4]
@@ -98,14 +99,14 @@ def main(maildir_path, mbox_filename):
             os.makedirs(curpath)
         logger.info('| %s -> %s' % (curfold, mboxpath))
 
-        maildir2mailbox(os.path.join(dirname, curfold), mboxpath)
+        maildir2mailbox(pathlib.Path(dirname, subfolder), mboxpath)
 
     logger.info('Done')
     return 0
 
 if __name__ == '__main__':
-    if sys.version_info[:2] < (3,2):
-        sys.stderr.write('This program needs at least Python 3.2 to work\r\n')
+    if sys.version_info[:2] < (3,5):
+        sys.stderr.write('This program needs at least Python 3.5 to work\r\n')
         sys.exit(1)
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
